@@ -1,5 +1,6 @@
-import { X, ExternalLink, Calendar, Clock, History, TrendingUp, Sparkles, FileText, Link } from 'lucide-react';
+import { X, ExternalLink, Calendar, Clock, History, TrendingUp, Sparkles, FileText, Link, Download } from 'lucide-react';
 import { Scrape, AnalysisPoint } from '../types/scrape';
+import { exportToTXT, exportToJSON, exportToDOC, exportToPDF } from '../utils/exportUtils';
 
 interface ScrapeDetailsProps {
   scrape: Scrape;
@@ -23,6 +24,23 @@ export function ScrapeDetails({ scrape, onClose }: ScrapeDetailsProps) {
 
   const originPoints = parseAnalysis(scrape.origin_analysis);
   const trendsPoints = parseAnalysis(scrape.trends_analysis);
+
+  const handleExport = (format: 'txt' | 'doc' | 'pdf' | 'json') => {
+    switch (format) {
+      case 'txt':
+        exportToTXT(scrape, originPoints, trendsPoints);
+        break;
+      case 'doc':
+        exportToDOC(scrape, originPoints, trendsPoints);
+        break;
+      case 'pdf':
+        exportToPDF(scrape, originPoints, trendsPoints);
+        break;
+      case 'json':
+        exportToJSON(scrape, originPoints, trendsPoints);
+        break;
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -217,6 +235,44 @@ export function ScrapeDetails({ scrape, onClose }: ScrapeDetailsProps) {
         </div>
 
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          {scrape.status === 'completed' && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Download className="w-5 h-5 text-gray-700" />
+                <span className="text-sm font-semibold text-gray-700">Export Analysis</span>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <button
+                  onClick={() => handleExport('txt')}
+                  className="flex items-center justify-center gap-2 bg-white border-2 border-gray-300 text-gray-700 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm">.TXT</span>
+                </button>
+                <button
+                  onClick={() => handleExport('doc')}
+                  className="flex items-center justify-center gap-2 bg-white border-2 border-blue-300 text-blue-700 font-medium py-2.5 px-4 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm">.DOC</span>
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  className="flex items-center justify-center gap-2 bg-white border-2 border-red-300 text-red-700 font-medium py-2.5 px-4 rounded-lg hover:bg-red-50 hover:border-red-400 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm">.PDF</span>
+                </button>
+                <button
+                  onClick={() => handleExport('json')}
+                  className="flex items-center justify-center gap-2 bg-white border-2 border-green-300 text-green-700 font-medium py-2.5 px-4 rounded-lg hover:bg-green-50 hover:border-green-400 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm">.JSON</span>
+                </button>
+              </div>
+            </div>
+          )}
           <button
             onClick={onClose}
             className="w-full bg-gradient-to-r from-gray-800 to-gray-900 text-white font-medium py-3 px-6 rounded-lg hover:from-gray-900 hover:to-black transition-colors"
