@@ -1,4 +1,4 @@
-import { X, Github } from 'lucide-react';
+import { X, Github, Mail } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,9 +7,34 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onClose }: AuthModalProps) {
-  const { signInWithGoogle, signInWithGithub } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithGithub } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+      if (mode === 'signup') {
+        await signUpWithEmail(email, password);
+        setError('');
+        alert('Account created! Please check your email to verify your account, then sign in.');
+        setMode('signin');
+      } else {
+        await signInWithEmail(email, password);
+        onClose();
+      }
+    } catch (err: any) {
+      console.error('Email auth error:', err);
+      setError(err?.message || 'Authentication failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -52,7 +77,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
         <div className="p-8">
           <p className="text-gray-600 text-center mb-8">
-            Sign in to save your research and access your analysis history
+            {mode === 'signin' ? 'Sign in to save your research and access your analysis history' : 'Create an account to get started'}
           </p>
 
           {error && (
@@ -60,6 +85,69 @@ export function AuthModal({ onClose }: AuthModalProps) {
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
+
+          <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={isLoading}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:bg-gray-50"
+                placeholder="your@email.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading}
+                minLength={6}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:bg-gray-50"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-sm"
+            >
+              <Mail className="w-5 h-5" />
+              {mode === 'signin' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          <div className="text-center mb-6">
+            <button
+              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+              disabled={isLoading}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            </button>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
 
           <div className="space-y-4">
             <button
