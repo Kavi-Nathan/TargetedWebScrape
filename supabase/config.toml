@@ -1,0 +1,15 @@
+[auth]
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+# Enable HaveIBeenPwned password breach protection
+password_min_length = 6
+password_required_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+# Security settings
+enable_password_breach_check = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
