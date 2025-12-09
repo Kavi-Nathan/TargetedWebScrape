@@ -1,6 +1,7 @@
-import { X, Github, Mail } from 'lucide-react';
-import { useState } from 'react';
+import { X, Github, Mail, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { checkPassword, getPasswordStrengthColor, getPasswordStrengthText, type PasswordCheckResult } from '../utils/passwordValidation';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -13,6 +14,30 @@ export function AuthModal({ onClose }: AuthModalProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordCheckResult, setPasswordCheckResult] = useState<PasswordCheckResult | null>(null);
+  const [isCheckingPassword, setIsCheckingPassword] = useState(false);
+
+  const checkPasswordSecurity = useCallback(async (pwd: string) => {
+    if (mode === 'signin' || !pwd || pwd.length < 6) {
+      setPasswordCheckResult(null);
+      return;
+    }
+
+    setIsCheckingPassword(true);
+    const result = await checkPassword(pwd);
+    setPasswordCheckResult(result);
+    setIsCheckingPassword(false);
+  }, [mode]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (password && mode === 'signup') {
+        checkPasswordSecurity(password);
+      }
+    }, 800);
+
+    return () => clearTimeout(timeoutId);
+  }, [password, mode, checkPasswordSecurity]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +45,34 @@ export function AuthModal({ onClose }: AuthModalProps) {
     setError('');
     try {
       if (mode === 'signup') {
+        if (passwordCheckResult?.isBreached) {
+          setError('This password has been exposed in a data breach. Please choose a different password.');
+          setIsLoading(false);
+          return;
+        }
+        if (passwordCheckResult?.isWeak) {
+          setError(passwordCheckResult.issues?.join('. ') || 'Password does not meet security requirements.');
+          setIsLoading(false);
+          return;
+        }
+        if (!passwordCheckResult && password.length >= 6) {
+          setIsCheckingPassword(true);
+          const result = await checkPassword(password);
+          setPasswordCheckResult(result);
+          setIsCheckingPassword(false);
+
+          if (result.isBreached) {
+            setError('This password has been exposed in a data breach. Please choose a different password.');
+            setIsLoading(false);
+            return;
+          }
+          if (result.isWeak) {
+            setError(result.issues?.join('. ') || 'Password does not meet security requirements.');
+            setIsLoading(false);
+            return;
+          }
+        }
+
         await signUpWithEmail(email, password);
         setError('');
         alert('Account created! Please check your email to verify your account, then sign in.');
@@ -105,7 +158,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                Password {mode === 'signup' && <span className="text-xs text-gray-500">(min. 12 characters)</span>}
               </label>
               <input
                 type="password"
@@ -114,10 +167,68 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                minLength={6}
+                minLength={mode === 'signup' ? 12 : 6}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:bg-gray-50"
                 placeholder="••••••••"
               />
+              {mode === 'signup' && password.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${getPasswordStrengthColor(passwordCheckResult)}`}
+                        style={{
+                          width: passwordCheckResult
+                            ? passwordCheckResult.isBreached
+                              ? '100%'
+                              : passwordCheckResult.isWeak
+                              ? '50%'
+                              : '100%'
+                            : '25%',
+                        }}
+                      />
+                    </div>
+                    {isCheckingPassword ? (
+                      <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                    ) : passwordCheckResult?.isBreached ? (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    ) : passwordCheckResult?.isWeak ? (
+                      <AlertCircle className="w-4 h-4 text-orange-500" />
+                    ) : passwordCheckResult ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : null}
+                  </div>
+                  <p
+                    className={`text-xs ${
+                      passwordCheckResult?.isBreached
+                        ? 'text-red-600 font-medium'
+                        : passwordCheckResult?.isWeak
+                        ? 'text-orange-600'
+                        : passwordCheckResult
+                        ? 'text-green-600'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {isCheckingPassword ? 'Checking password security...' : getPasswordStrengthText(passwordCheckResult)}
+                  </p>
+                  {passwordCheckResult?.issues && passwordCheckResult.issues.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {passwordCheckResult.issues.map((issue, idx) => (
+                        <li key={idx} className="text-xs text-orange-600 flex items-start gap-1">
+                          <span className="mt-0.5">•</span>
+                          <span>{issue}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {passwordCheckResult?.isBreached && (
+                    <p className="mt-2 text-xs text-red-600 flex items-start gap-1">
+                      <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <span>This password appeared in {passwordCheckResult.breachCount?.toLocaleString()} data breaches. Choose a unique password.</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
@@ -132,7 +243,11 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
           <div className="text-center mb-6">
             <button
-              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+              onClick={() => {
+                setMode(mode === 'signin' ? 'signup' : 'signin');
+                setPasswordCheckResult(null);
+                setError('');
+              }}
               disabled={isLoading}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
